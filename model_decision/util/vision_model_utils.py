@@ -1,13 +1,19 @@
 from PIL import Image, ImageDraw, ImageFont
 import cv2
+import io
 import time
 import numpy as np
 import base64
 from matplotlib import pyplot as plt
 from typing import Tuple, List, Union
+from transformers import AutoProcessor, AutoModelForCausalLM
 import torch
+import supervision as sv
+from torchvision.transforms import ToPILImage
+from torchvision.ops import box_convert
 from model_decision.model.PaddleOcr import paddle_ocr
-from model_decision.function.functions import turn_to_xywh, turn_to_xyxy, turn_to_xywh_yolo
+from model_decision.function.functions import turn_to_xywh, turn_to_xyxy, int_box_area, remove_overlap_new
+from model_decision.function.box_annotator import BoxAnnotator
 
 
 def check_ocr_box(image: Union[str, Image.Image], display_img=True, output_bb_format='xywh', goal_filtering=None, ocr_args=None):
@@ -244,4 +250,107 @@ def get_som_labeled_img(image_source: Union[str, Image.Image], model=None, BOX_T
         assert w == annotated_frame.shape[1] and h == annotated_frame.shape[0]
 
     return encoded_image, label_coordinates, filtered_boxes_elem
+
+
+def get_parsed_content_icon(filtered_boxes, starting_idx, image_source, caption_model_processor, prompt=None,
+                            batch_size=128):
+    """
+    输入图片，输出图片，图片中包含文字和图标
+    :param filtered_boxes:
+    :param starting_idx:
+    :param image_source:
+    :param caption_model_processor:
+    :param prompt:
+    :param batch_size:
+    :return:
+    """
+    # Number of samples per batch, --> 128 roughly takes 4 GB of GPU memory for florence v2 model
+    to_pil = ToPILImage()
+    if starting_idx:
+        non_ocr_boxes = filtered_boxes[starting_idx:]
+    else:
+        non_ocr_boxes = filtered_boxes
+    croped_pil_image = []
+    for i, coord in enumerate(non_ocr_boxes):
+        try:
+            xmin, xmax = int(coord[0] * image_source.shape[1]), int(coord[2] * image_source.shape[1])
+            ymin, ymax = int(coord[1] * image_source.shape[0]), int(coord[3] * image_source.shape[0])
+            cropped_image = image_source[ymin:ymax, xmin:xmax, :]
+            cropped_image = cv2.resize(cropped_image, (64, 64))
+            croped_pil_image.append(to_pil(cropped_image))
+        except:
+            continue
+
+    model, processor = caption_model_processor['model'], caption_model_processor['processor']
+    if not prompt:
+        if 'florence' in model.config.name_or_path:
+            prompt = "<CAPTION>"
+        else:
+            prompt = "The image shows"
+
+    generated_texts = []
+    device = model.device
+    for i in range(0, len(croped_pil_image), batch_size):
+        start = time.time()
+        batch = croped_pil_image[i:i + batch_size]
+        t1 = time.time()
+        if model.device.type == 'cuda':
+            inputs = processor(images=batch, text=[prompt] * len(batch), return_tensors="pt", do_resize=False).to(
+                device=device, dtype=torch.float16)
+        else:
+            inputs = processor(images=batch, text=[prompt] * len(batch), return_tensors="pt").to(device=device)
+        if 'florence' in model.config.name_or_path:
+            generated_ids = model.generate(input_ids=inputs["input_ids"], pixel_values=inputs["pixel_values"],
+                                           max_new_tokens=20, num_beams=1, do_sample=False)
+        else:
+            generated_ids = model.generate(**inputs, max_length=100, num_beams=5, no_repeat_ngram_size=2,
+                                           early_stopping=True,
+                                           num_return_sequences=1)  # temperature=0.01, do_sample=True,
+        generated_text = processor.batch_decode(generated_ids, skip_special_tokens=True)
+        generated_text = [gen.strip() for gen in generated_text]
+        generated_texts.extend(generated_text)
+
+    return generated_texts
+
+
+def annotate(image_source: np.ndarray, boxes: torch.Tensor, logits: torch.Tensor, phrases: List[str], text_scale: float,
+             text_padding=5, text_thickness=2, thickness=3) -> np.ndarray:
+    """
+    This function annotates an image with bounding boxes and labels.
+
+    Parameters:
+    image_source (np.ndarray): The source image to be annotated.
+    boxes (torch.Tensor): A tensor containing bounding box coordinates. in cxcywh format, pixel scale
+    logits (torch.Tensor): A tensor containing confidence scores for each bounding box.
+    phrases (List[str]): A list of labels for each bounding box.
+    text_scale (float): The scale of the text to be displayed. 0.8 for mobile/web, 0.3 for desktop # 0.4 for mind2web
+
+    Returns:
+    np.ndarray: The annotated image.
+    """
+    h, w, _ = image_source.shape
+    boxes = boxes * torch.Tensor([w, h, w, h])
+    xyxy = box_convert(boxes=boxes, in_fmt="cxcywh", out_fmt="xyxy").numpy()
+    xywh = box_convert(boxes=boxes, in_fmt="cxcywh", out_fmt="xywh").numpy()
+    detections = sv.Detections(xyxy=xyxy)
+
+    labels = [f"{phrase}" for phrase in range(boxes.shape[0])]
+
+    box_annotator = BoxAnnotator(text_scale=text_scale, text_padding=text_padding,text_thickness=text_thickness,thickness=thickness) # 0.8 for mobile/web, 0.3 for desktop # 0.4 for mind2web
+    annotated_frame = image_source.copy()
+    annotated_frame = box_annotator.annotate(scene=annotated_frame, detections=detections, labels=labels, image_size=(w,h))
+
+    label_coordinates = {f"{phrase}": v for phrase, v in zip(phrases, xywh)}
+    return annotated_frame, label_coordinates
+
+
+def get_caption_model_processor(model_name, model_name_or_path="Salesforce/blip2-opt-2.7b", device=None):
+    if not device:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+    processor = AutoProcessor.from_pretrained("microsoft/Florence-2-base", trust_remote_code=True)
+    if device == 'cpu':
+        model = AutoModelForCausalLM.from_pretrained(model_name_or_path, torch_dtype=torch.float32, trust_remote_code=True)
+    else:
+        model = AutoModelForCausalLM.from_pretrained(model_name_or_path, torch_dtype=torch.float16, trust_remote_code=True).to(device)
+    return {'model': model.to(device), 'processor': processor}
 

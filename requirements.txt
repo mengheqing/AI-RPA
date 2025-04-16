@@ -1,5 +1,10 @@
 paddleocr==2.10.0
 numpy==1.26.4
-opencv-python
-opencv-python-headless
+opencv-python==4.11.0.86
+opencv-python-headless==4.11.0.86
 matplotlib==3.10.1
+torch==2.6.0
+torchvision==0.21.0
+supervision==0.18.0
+ultralytics==8.3.70
+transformers==4.51.3
