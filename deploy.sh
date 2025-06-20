@@ -16,8 +16,8 @@ if [ -n "$PID" ]; then
 fi
 
 echo "启动element_recognition_main"
-cd /root/AI-RPA/element_recognition
-nohup python element_recognition_main.py &
+cd /root/AI-RPA/
+nohup python3 element_recognition/element_recognition_main.py &
 
 echo "重新部署完成"
 
