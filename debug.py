@@ -3,27 +3,29 @@ from PIL import Image
 import base64
 from config import project_path
 from function import get_legal_path
-from model_decision.util.vision_model_utils import check_ocr_box, get_caption_model_processor, get_som_labeled_img
-from model_decision.model.Yolo import load_yolo_model
+# from model_decision.util.vision_model_utils import check_ocr_box, get_caption_model_processor, get_som_labeled_img
+# from model_decision.model.Yolo import load_yolo_model
+from element_recognition.function.functions import base64_to_image
+import requests
 
-path = get_legal_path(project_path)
-yolo_model = load_yolo_model(model_path=path + 'model_decision/weights/icon_detect/model.pt')
-caption_model_processor = get_caption_model_processor(
-    model_name="florence2",
-    model_name_or_path=path + "model_decision/weights/icon_caption_florence"
-)
+# path = get_legal_path(project_path)
+# yolo_model = load_yolo_model(model_path=path + 'model_decision/weights/icon_detect/model.pt')
+# caption_model_processor = get_caption_model_processor(
+#     model_name="florence2",
+#     model_name_or_path=path + "model_decision/weights/icon_caption_florence"
+# )
 
 def process_image(path):
     # 初始化模型
-    # print('初始化模型')
-    # yolo_model = load_yolo_model(model_path=path + 'model_decision/weights/icon_detect/model.pt')
-    # caption_model_processor = get_caption_model_processor(
-    #     model_name="florence2",
-    #     model_name_or_path=path + "model_decision/weights/icon_caption_florence"
-    # )
+    print('初始化模型')
+    yolo_model = load_yolo_model(model_path=path + 'model_decision/weights/icon_detect/model.pt')
+    caption_model_processor = get_caption_model_processor(
+        model_name="florence2",
+        model_name_or_path=path + "model_decision/weights/icon_caption_florence"
+    )
 
-    #DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    # print('初始化完成')
+    DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    print('初始化完成')
 
     box_threshold: float = 0.05
     iou_threshold: float = 0.1
@@ -116,9 +118,33 @@ def process_image(path):
     }
 
 
+def try_request(path):
+    url = "http://47.85.94.28:10088/api/element_recognition/image_recognition/get_image_recognition_result"
+
+    payload = {}
+    files = [
+        ('image', ('input.png', open(path + 'model_decision/data/input.png', 'rb'),
+                   'image/png'))
+    ]
+    headers = {}
+
+    response = requests.request("POST", url, headers=headers, data=payload, files=files).json()
+
+    # dict_keys(['label_coordinates', 'labeled_image', 'parsed_content', 'status'])
+    label_coordinates = response['response']
+    labeled_image = response['labeled_image']
+    parsed_content = response['parsed_content']
+    status = response['status']
+    base64_to_image(labeled_image, path + 'model_decision/data/output.png')
+    print(status)
+
+
+
+
 if __name__ == "__main__":
-    # project_path = '/Users/mengheqing/PycharmProjects/AI-RPA/'
-    project_path = '/root/AI-RPA/'
+    project_path = '/Users/mengheqing/PycharmProjects/AI-RPA/'
+    # project_path = '/root/AI-RPA/'
     path = get_legal_path(project_path)
-    result = process_image(path)
-    print(result)
+    # result = process_image(path)
+    # print(result)
+    try_request(path)

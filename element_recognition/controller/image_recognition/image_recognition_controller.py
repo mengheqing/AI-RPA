@@ -1,3 +1,5 @@
+import os
+
 from element_recognition.element_recognition_server import app
 from flask import request, jsonify
 import torch
@@ -83,7 +85,8 @@ def process_image(path, image):
     print('格式化解析结果')
     parsed_content = '\n'.join([f'icon {i}: {str(v)}' for i, v in enumerate(parsed_content_list)])
 
-    # base64_to_image(dino_labled_img, path + 'model_decision/data/output.jpg')
+    # 删除临时文件
+    os.remove(image_save_path)
 
     return {
         "status": "success",
