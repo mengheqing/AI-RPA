@@ -8,17 +8,24 @@ from config import project_path
 from function import get_legal_path
 from datetime import datetime
 
+path = get_legal_path(project_path)
+yolo_model = load_yolo_model(model_path=path + 'model_decision/weights/icon_detect/model.pt')
+caption_model_processor = get_caption_model_processor(
+    model_name="florence2",
+    model_name_or_path=path + "model_decision/weights/icon_caption_florence"
+)
+
 def process_image(path, image):
     # 初始化模型
-    print('初始化模型')
-    yolo_model = load_yolo_model(model_path=path + 'model_decision/weights/icon_detect/model.pt')
-    caption_model_processor = get_caption_model_processor(
-        model_name="florence2",
-        model_name_or_path=path + "model_decision/weights/icon_caption_florence"
-    )
-
-    DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    print('初始化完成')
+    # print('初始化模型')
+    # yolo_model = load_yolo_model(model_path=path + 'model_decision/weights/icon_detect/model.pt')
+    # caption_model_processor = get_caption_model_processor(
+    #     model_name="florence2",
+    #     model_name_or_path=path + "model_decision/weights/icon_caption_florence"
+    # )
+    #
+    # DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    # print('初始化完成')
 
     box_threshold: float = 0.05
     iou_threshold: float = 0.1
