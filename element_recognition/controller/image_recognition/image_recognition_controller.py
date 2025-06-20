@@ -105,15 +105,15 @@ def get_image_recognition_result():
     if file.filename == '':
         return jsonify({"error": "No selected file"}), 400
     if file:
-        try:
+        # try:
             # 使用 Pillow 打开图片
-            img = Image.open(file.stream)
-            img.verify()  # 验证图片完整性
-            img = Image.open(file.stream)   # 重新打开，因为 verify 后流会关闭
-            path = get_legal_path(project_path)
-            result = process_image(path, img)
-            return jsonify(result)
-        except Exception as e:
-            return jsonify({"error": f"Failed to open image: {str(e)}"}), 400
+        img = Image.open(file.stream)
+        img.verify()  # 验证图片完整性
+        img = Image.open(file.stream)   # 重新打开，因为 verify 后流会关闭
+        path = get_legal_path(project_path)
+        result = process_image(path, img)
+        return jsonify(result)
+        # except Exception as e:
+        #     return jsonify({"error": f"Failed to open image: {str(e)}"}), 400
     else:
         return jsonify({"error": "get file failed"}), 400
