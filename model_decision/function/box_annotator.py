@@ -1,27 +1,22 @@
 from typing import List, Optional, Union, Tuple
-
 import cv2
 import numpy as np
-
 from supervision.detection.core import Detections
 from supervision.draw.color import Color, ColorPalette
 
 
 class BoxAnnotator:
     """
-    A class for drawing bounding boxes on an image using detections provided.
+    用于在图像上绘制边界框的类
+    提供多种绘制边界框的方式，包括绘制边界框、绘制标签、绘制置信度等
 
     Attributes:
-        color (Union[Color, ColorPalette]): The color to draw the bounding box,
-            can be a single color or a color palette
-        thickness (int): The thickness of the bounding box lines, default is 2
-        text_color (Color): The color of the text on the bounding box, default is white
-        text_scale (float): The scale of the text on the bounding box, default is 0.5
-        text_thickness (int): The thickness of the text on the bounding box,
-            default is 1
-        text_padding (int): The padding around the text on the bounding box,
-            default is 5
-
+        color (Union[Color, ColorPalette]): 绘制边界框的颜色，可以是单一颜色或颜色调色板
+        thickness (int): 边界框的线宽，默认为2
+        text_color (Color): 绘制标签的颜色，默认为白色
+        text_scale (float): 标签的缩放比例，默认为0.5
+        text_thickness (int): 标签的线宽，默认为1
+        text_padding (int): 标签与边界框的间距，默认为5
     """
 
     def __init__(
@@ -51,39 +46,16 @@ class BoxAnnotator:
         image_size: Optional[Tuple[int, int]] = None,
     ) -> np.ndarray:
         """
-        Draws bounding boxes on the frame using the detections provided.
-
-        Args:
-            scene (np.ndarray): The image on which the bounding boxes will be drawn
-            detections (Detections): The detections for which the
-                bounding boxes will be drawn
-            labels (Optional[List[str]]): An optional list of labels
-                corresponding to each detection. If `labels` are not provided,
-                corresponding `class_id` will be used as label.
-            skip_label (bool): Is set to `True`, skips bounding box label annotation.
-        Returns:
-            np.ndarray: The image with the bounding boxes drawn on it
-
-        Example:
-            ```python
-            import supervision as sv
-
-            classes = ['person', ...]
-            image = ...
-            detections = sv.Detections(...)
-
-            box_annotator = sv.BoxAnnotator()
-            labels = [
-                f"{classes[class_id]} {confidence:0.2f}"
-                for _, _, confidence, class_id, _ in detections
-            ]
-            annotated_frame = box_annotator.annotate(
-                scene=image.copy(),
-                detections=detections,
-                labels=labels
-            )
-            ```
+        绘制边界框的函数，输入为图像和检测结果，输出为绘制了边界框的图像
+        :param scene: (np.ndarray): 输入图像
+        :param detections: (Detections): 检测结果
+        :param labels: (Optional[List[str]]): 标签列表，对应每个检测结果。如果没有提供标签，
+                则使用对应的 class_id 作为标签。
+        :param skip_label: (bool): 是否跳过标签绘制，默认为 False
+        :param image_size: (Optional[Tuple[int, int]]): 图像大小，默认为 None
+        :return: np.ndarray: 绘制了边界框的图像
         """
+
         font = cv2.FONT_HERSHEY_SIMPLEX
         for i in range(len(detections)):
             x1, y1, x2, y2 = detections.xyxy[i].astype(int)
@@ -165,12 +137,14 @@ class BoxAnnotator:
 def box_area(box):
         return (box[2] - box[0]) * (box[3] - box[1])
 
+
 def intersection_area(box1, box2):
     x1 = max(box1[0], box2[0])
     y1 = max(box1[1], box2[1])
     x2 = min(box1[2], box2[2])
     y2 = min(box1[3], box2[3])
     return max(0, x2 - x1) * max(0, y2 - y1)
+
 
 def IoU(box1, box2, return_max=True):
     intersection = intersection_area(box1, box2)
@@ -187,6 +161,19 @@ def IoU(box1, box2, return_max=True):
 
 
 def get_optimal_label_pos(text_padding, text_width, text_height, x1, y1, x2, y2, detections, image_size):
+    """
+    检查文本和背景框之间的重叠情况，返回最优的文本位置，
+    :param text_padding:
+    :param text_width:
+    :param text_height:
+    :param x1:
+    :param y1:
+    :param x2:
+    :param y2:
+    :param detections:
+    :param image_size:
+    :return:
+    """
     """ check overlap of text and background detection box, and get_optimal_label_pos, 
         pos: str, position of the text, must be one of 'top left', 'top right', 'outer left', 'outer right' TODO: if all are overlapping, return the last one, i.e. outer right
         Threshold: default to 0.3
@@ -229,9 +216,7 @@ def get_optimal_label_pos(text_padding, text_width, text_height, x1, y1, x2, y2,
     is_overlap = get_is_overlap(detections, text_background_x1, text_background_y1, text_background_x2, text_background_y2, image_size)
     if not is_overlap:
         return text_x, text_y, text_background_x1, text_background_y1, text_background_x2, text_background_y2
-    
 
-    # elif pos == 'outer right':
     text_x = x2 + text_padding
     text_y = y1 + text_padding + text_height
 

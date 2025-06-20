@@ -1,0 +1,1 @@
+project_path = '/Users/mengheqing/PycharmProjects/AI-RPA/'

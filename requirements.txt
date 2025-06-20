@@ -8,3 +8,8 @@ torchvision==0.21.0
 supervision==0.18.0
 ultralytics==8.3.70
 transformers==4.51.3
+paddlepaddle==3.0.0
+paddleocr==2.10.0
+openai==1.76.0
+mcp[cli]
+flask==3.1.1

@@ -196,7 +196,6 @@ def get_som_labeled_img(image_source: Union[str, Image.Image], model=None, BOX_T
     xyxy_elem = [{'type': 'icon', 'bbox': box, 'interactivity': True, 'content': None} for box in xyxy.tolist() if
                  int_box_area(box, w, h) > 0]
     filtered_boxes = remove_overlap_new(boxes=xyxy_elem, iou_threshold=iou_threshold, ocr_bbox=ocr_bbox_elem)
-
     # sort the filtered_boxes so that the one with 'content': None is at the end, and get the index of the first 'content': None
     filtered_boxes_elem = sorted(filtered_boxes, key=lambda x: x['content'] is None)
     # get the index of the first 'content': None
@@ -344,7 +343,7 @@ def annotate(image_source: np.ndarray, boxes: torch.Tensor, logits: torch.Tensor
     return annotated_frame, label_coordinates
 
 
-def get_caption_model_processor(model_name, model_name_or_path="Salesforce/blip2-opt-2.7b", device=None):
+def get_caption_model_processor(model_name, model_name_or_path="./model_decision/weights/icon_caption_florence", device=None):
     if not device:
         device = "cuda" if torch.cuda.is_available() else "cpu"
     processor = AutoProcessor.from_pretrained("microsoft/Florence-2-base", trust_remote_code=True)
