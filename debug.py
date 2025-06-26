@@ -128,17 +128,21 @@ def try_request(path):
     ]
     headers = {}
 
-    response = requests.request("POST", url, headers=headers, data=payload, files=files).json()
+    response = (requests.request("POST", url, headers=headers, data=payload, files=files))
+    try:
+        response = response.json()
+    except Exception as e:
+        print('response not json')
+        print(response.text)
+        raise e
 
     # dict_keys(['label_coordinates', 'labeled_image', 'parsed_content', 'status'])
-    label_coordinates = response['response']
+    label_coordinates = response['label_coordinates']
     labeled_image = response['labeled_image']
     parsed_content = response['parsed_content']
     status = response['status']
     base64_to_image(labeled_image, path + 'model_decision/data/output.png')
-    print(status)
-
-
+    print(parsed_content)
 
 
 if __name__ == "__main__":
