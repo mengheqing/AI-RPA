@@ -54,7 +54,6 @@ class BaseTool(ABC, BaseModel):
             },
         }
 
-# ... 已有代码 ...
 
 class ToolResult(BaseModel):
     """
